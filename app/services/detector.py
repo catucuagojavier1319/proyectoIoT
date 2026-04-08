@@ -18,11 +18,11 @@ modelo = YOLO(MODELO_PATH)
 cap = cv2.VideoCapture(VIDEO_PATH)
 
 # ─── UMBRALES ────────────────────────────────────────────────
-CONFIANZA_MIN          = 0.5
-DISTANCIA_PELIGRO      = 150
+CONFIANZA_MIN          = 0.3
+DISTANCIA_PELIGRO      = 200
 CRECIMIENTO_ACELERANDO = 1.15
-CRECIMIENTO_FRENANDO   = 0.95
-FRAMES_FRENADO_MIN     = 3
+CRECIMIENTO_FRENANDO   = 0.98
+FRAMES_FRENADO_MIN     = 2
 FRAMES_ALERTA          = 90    # ~3 segundos a 30fps
 confianza_moto = 0  # Agrega esta línea
 
@@ -51,6 +51,9 @@ while True:
         break
 
     frame_num += 1
+    
+    if frame_num % 3 != 0:  # Procesa 1 de cada 3 frames
+        continue
     resultados = modelo(frame, verbose=False)
 
     moto_bbox    = None

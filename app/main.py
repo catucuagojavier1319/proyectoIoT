@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes import incidents, devices
+from app.api import detection  # 👈 Importar el nuevo módulo de detección
 
 app = FastAPI(
     title="API Antirrobo - Detección de Arrebatos",
@@ -17,9 +18,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Incluir rutas
+# Incluir rutas existentes
 app.include_router(incidents.router, prefix="/api/incidents", tags=["Incidentes"])
 app.include_router(devices.router, prefix="/api/devices", tags=["Dispositivos"])
+
+# 👇 Agregar el nuevo router de detección
+app.include_router(detection.router)  # Ya tiene prefix="/api/detection" dentro
 
 @app.get("/")
 def root():
@@ -28,7 +32,8 @@ def root():
         "endpoints": {
             "alertas": "/api/incidents/",
             "imagenes": "/api/incidents/{id}/imagenes",
-            "stats": "/api/incidents/stats/resumen"
+            "stats": "/api/incidents/stats/resumen",
+            "deteccion": "/api/detection/detect"  # 👈 Nuevo endpoint
         }
     }
 

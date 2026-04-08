@@ -7,14 +7,17 @@ load_dotenv()
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
-def enviar_telegram(foto1_bytes, foto2_bytes, distancia, confianza):
+async def enviar_telegram(foto1_bytes, foto2_bytes, distancia, confianza, fecha=None):
     """Enviar alerta a Telegram con 2 imágenes"""
     try:
         url = f"https://api.telegram.org/bot{TOKEN}/sendPhoto"
         
-        # Primera foto con mensaje
-        caption = f"ALERTA DE SEGURIDAD\n\n📏 Distancia: {distancia}px\n🎯 Confianza: {confianza:.1f}%\n⚠️ Posible arrebato detectado"
+        if fecha:
+            caption = f"ALERTA DE SEGURIDAD\n📅 {fecha}\n Distancia: {distancia}px\n Confianza: {confianza:.1f}%"
+        else:
+            caption = f"ALERTA DE SEGURIDAD\n Distancia: {distancia}px\n Confianza: {confianza:.1f}%"
         
+        # Primera foto con mensaje
         response1 = requests.post(
             url,
             data={'chat_id': CHAT_ID, 'caption': caption},
