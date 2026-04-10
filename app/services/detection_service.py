@@ -6,9 +6,8 @@ from ultralytics import YOLO
 import math
 
 MODELO_PATH = "yolov8n.pt"
-CONFIANZA_MIN = 0.4
-DISTANCIA_PELIGRO = 150  # px de distancia entre moto y persona
-
+CONFIANZA_MIN = 0.25
+DISTANCIA_PELIGRO = 400  
 class DetectionService:
     def __init__(self):
         self.modelo = YOLO(MODELO_PATH)
@@ -36,10 +35,14 @@ class DetectionService:
             persona_bbox = None
             confianza_moto = 0
             
+            print(f"📊 Total detecciones: {len(resultados[0].boxes)}")
+            
             for box in resultados[0].boxes:
                 clase = int(box.cls[0])
                 confianza = float(box.conf[0])
                 x1, y1, x2, y2 = map(int, box.xyxy[0])
+                
+                print(f"  - Clase: {clase}, Confianza: {confianza:.2f}")
                 
                 if confianza < CONFIANZA_MIN:
                     continue
@@ -47,12 +50,16 @@ class DetectionService:
                 if clase == 3:  # moto
                     moto_bbox = (x1, y1, x2, y2)
                     confianza_moto = confianza
+                    print(f"    🏍️ Moto detectada!")
                     
                 elif clase == 0:  # persona
                     persona_bbox = (x1, y1, x2, y2)
+                    print(f"    👤 Persona detectada!")
             
             # Solo alerta si hay moto Y persona cerca
             if moto_bbox and persona_bbox:
+                print("✅ Moto y persona detectadas juntas")
+                
                 # Centro de la moto
                 cx_m = (moto_bbox[0] + moto_bbox[2]) // 2
                 cy_m = (moto_bbox[1] + moto_bbox[3]) // 2
@@ -63,9 +70,12 @@ class DetectionService:
                 
                 # Distancia entre centros
                 distancia = math.sqrt((cx_m - cx_p)**2 + (cy_m - cy_p)**2)
+                print(f"📏 Distancia entre centros: {int(distancia)}px (Límite: {DISTANCIA_PELIGRO}px)")
                 
                 # Si están muy cerca → ALERTA
                 if distancia < DISTANCIA_PELIGRO:
+                    print("🚨 ¡ALERTA! Condición cumplida")
+                    
                     # Guardar frame
                     alto, ancho = frame.shape[:2]
                     if alto > 800 or ancho > 800:
@@ -73,8 +83,6 @@ class DetectionService:
                     
                     _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
                     frame_bytes = buffer.tobytes()
-                    
-                    print(f"🚨 ALERTA! Moto y persona cerca - Distancia: {int(distancia)}px")
                     
                     return {
                         "detected": True,
@@ -84,6 +92,13 @@ class DetectionService:
                         "message": "🚨 ¡Moto y persona muy cerca!",
                         "frame_bytes": frame_bytes
                     }
+                else:
+                    print("❌ Distancia mayor al límite, no hay alerta")
+            else:
+                if not moto_bbox:
+                    print("❌ No hay moto detectada")
+                if not persona_bbox:
+                    print("❌ No hay persona detectada")
             
             return {"detected": False}
             

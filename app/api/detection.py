@@ -7,12 +7,13 @@ import json
 from datetime import datetime
 
 from app.services.detection_service import DetectionService
+from app.services.s3_service import upload_image_to_s3
+from app.services.openai_service import analyze_image  # 👈 NUEVO
 from app.core.database import guardar_alerta
 from app.services.telegram_bot import enviar_telegram
 
 router = APIRouter(prefix="/api/detection", tags=["deteccion"])
 
-# Almacenar sesiones activas
 active_sessions: Dict[str, DetectionService] = {}
 
 class FrameRequest(BaseModel):
@@ -26,7 +27,6 @@ class FrameResponse(BaseModel):
     state: Optional[str] = None
     alert_id: Optional[int] = None
 
-# Endpoint HTTP
 @router.post("/detect", response_model=FrameResponse)
 async def detect_frame(request: FrameRequest):
     try:
@@ -36,20 +36,31 @@ async def detect_frame(request: FrameRequest):
         alert_id = None
         if result.get("detected") and result.get("frame_bytes"):
             try:
-                # ✅ Sin argumentos nombrados
-                alert_id = guardar_alerta(
-                    result["frame_bytes"],
-                    result["frame_bytes"],
-                    result.get("confidence", 0.5),
-                    result.get("distance", 0)
-                )
-                await enviar_telegram(
-                    result["frame_bytes"], 
-                    result["frame_bytes"], 
-                    result.get("distance", 0), 
-                    result.get("confidence", 0)
-                )
-                print(f"✅ ALERTA GUARDADA - ID: {alert_id}")
+                image_url = upload_image_to_s3(result["frame_bytes"])
+                
+                if image_url:
+                    alert_id = guardar_alerta(
+                        image_url, image_url,
+                        result.get("confidence", 0.5),
+                        result.get("distance", 0)
+                    )
+                    
+                    # 👈 NUEVO: Analizar con GPT
+                    analysis = analyze_image(image_url)
+                    print(f"🤖 GPT: {analysis}")
+                    
+                    # 👈 Solo enviar Telegram si es robo
+                    if analysis.get("is_robo"):
+                        enviar_telegram(
+                            image_url, image_url,
+                            result.get("distance", 0),
+                            result.get("confidence", 0)
+                        )
+                        print(f"✅ ALERTA ENVIADA A TELEGRAM - ID: {alert_id}")
+                    else:
+                        print(f"📝 Alerta guardada sin Telegram: {analysis.get('reason')}")
+                else:
+                    print("❌ Error subiendo a S3")
             except Exception as e:
                 print(f"Error guardando alerta: {e}")
         
@@ -65,7 +76,6 @@ async def detect_frame(request: FrameRequest):
         print(f"Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-# WebSocket para tiempo real
 @router.websocket("/ws/{session_id}")
 async def websocket_detect(websocket: WebSocket, session_id: str):
     await websocket.accept()
@@ -84,28 +94,41 @@ async def websocket_detect(websocket: WebSocket, session_id: str):
             
             result = detector.procesar_frame(frame_base64)
             
-            print(f"🔍 Resultado: detected={result.get('detected')}, has_frame_bytes={result.get('frame_bytes') is not None}")
+            print(f"🔍 Resultado: detected={result.get('detected')}")
             
             alert_id = None
             if result.get("detected") and result.get("frame_bytes"):
                 try:
-                    print(f"💾 Guardando alerta...")
-                    # ✅ Sin argumentos nombrados
-                    alert_id = guardar_alerta(
-                        result["frame_bytes"],
-                        result["frame_bytes"],
-                        result.get("confidence", 0.5),
-                        result.get("distance", 0)
-                    )
-                    await enviar_telegram(
-                        result["frame_bytes"], 
-                        result["frame_bytes"], 
-                        result.get("distance", 0), 
-                        result.get("confidence", 0),
-                        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    )
-                    result["alert_id"] = alert_id
-                    print(f"✅ ALERTA GUARDADA - ID: {alert_id}")
+                    print(f"💾 Subiendo a S3...")
+                    image_url = upload_image_to_s3(result["frame_bytes"])
+                    
+                    if image_url:
+                        alert_id = guardar_alerta(
+                            image_url, image_url,
+                            result.get("confidence", 0.5),
+                            result.get("distance", 0)
+                        )
+                        
+                        # 👈 NUEVO: Analizar con GPT
+                        analysis = analyze_image(image_url)
+                        print(f"🤖 GPT: {analysis}")
+                        
+                        # 👈 Solo enviar Telegram si es robo
+                        if analysis.get("is_robo"):
+                            enviar_telegram(
+                                image_url, image_url,
+                                result.get("distance", 0),
+                                result.get("confidence", 0),
+                                analysis.get("reason")
+                            )
+                            print(f"✅ ALERTA ENVIADA A TELEGRAM - ID: {alert_id}")
+                        else:
+                            print(f"📝 Alerta guardada sin Telegram: {analysis.get('reason')}")
+                        
+                        result["alert_id"] = alert_id
+                    else:
+                        print("❌ Error subiendo a S3")
+                        
                 except Exception as e:
                     print(f"❌ Error guardando alerta: {e}")
             

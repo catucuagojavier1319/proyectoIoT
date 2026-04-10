@@ -18,11 +18,11 @@ def get_db():
 
 @router.get("/")
 def get_alertas(limit: int = Query(50, ge=1, le=500)):
-    """Listar alertas recientes"""
+    """Listar alertas recientes con URLs de S3"""
     conn = get_db()
     cur = conn.cursor()
     cur.execute("""
-        SELECT id, fecha, moto_confianza, distancia_moto_persona, 
+        SELECT id, fecha, foto1_url, foto2_url, moto_confianza, distancia_moto_persona, 
                telegram_enviado, estado
         FROM alertas 
         ORDER BY fecha DESC 
@@ -35,18 +35,20 @@ def get_alertas(limit: int = Query(50, ge=1, le=500)):
     return [{
         "id": r[0],
         "fecha": r[1].isoformat(),
-        "moto_confianza": r[2],
-        "distancia": r[3],
-        "telegram_enviado": r[4],
-        "estado": r[5]
+        "foto1_url": r[2],
+        "foto2_url": r[3],
+        "moto_confianza": r[4],
+        "distancia": r[5],
+        "telegram_enviado": r[6],
+        "estado": r[7]
     } for r in resultados]
 
 @router.get("/{alerta_id}/imagenes")
 def get_imagenes(alerta_id: int):
-    """Obtener imágenes en base64"""
+    """Obtener URLs de las imágenes desde S3"""
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("SELECT foto1_blob, foto2_blob FROM alertas WHERE id = %s", (alerta_id,))
+    cur.execute("SELECT foto1_url, foto2_url FROM alertas WHERE id = %s", (alerta_id,))
     row = cur.fetchone()
     cur.close()
     conn.close()
@@ -56,8 +58,8 @@ def get_imagenes(alerta_id: int):
     
     return {
         "id": alerta_id,
-        "foto1_base64": base64.b64encode(row[0]).decode('utf-8'),
-        "foto2_base64": base64.b64encode(row[1]).decode('utf-8')
+        "foto1_url": row[0],
+        "foto2_url": row[1]
     }
 
 @router.get("/{alerta_id}")
@@ -66,7 +68,7 @@ def get_alerta(alerta_id: int):
     conn = get_db()
     cur = conn.cursor()
     cur.execute("""
-        SELECT id, fecha, moto_confianza, distancia_moto_persona, 
+        SELECT id, fecha, foto1_url, foto2_url, moto_confianza, distancia_moto_persona, 
                telegram_enviado, estado
         FROM alertas WHERE id = %s
     """, (alerta_id,))
@@ -80,14 +82,16 @@ def get_alerta(alerta_id: int):
     return {
         "id": row[0],
         "fecha": row[1].isoformat(),
-        "moto_confianza": row[2],
-        "distancia": row[3],
-        "telegram_enviado": row[4],
-        "estado": row[5]
+        "foto1_url": row[2],
+        "foto2_url": row[3],
+        "moto_confianza": row[4],
+        "distancia": row[5],
+        "telegram_enviado": row[6],
+        "estado": row[7]
     }
 
 @router.patch("/{alerta_id}/estado")
-def update_estado(alerta_id: int, estado: str = Query(..., regex="^(pendiente|revisado|falso)$")):
+def update_estado(alerta_id: int, estado: str = Query(..., pattern="^(pendiente|revisado|falso)$")):
     """Actualizar estado: pendiente, revisado, falso"""
     conn = get_db()
     cur = conn.cursor()
