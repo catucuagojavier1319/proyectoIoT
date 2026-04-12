@@ -1,10 +1,14 @@
 CREATE TABLE IF NOT EXISTS alertas (
     id SERIAL PRIMARY KEY,
     fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    foto1_blob BYTEA NOT NULL,
-    foto2_blob BYTEA NOT NULL,
+    foto1_url VARCHAR(500),
+    foto2_url VARCHAR(500),
     moto_confianza FLOAT NOT NULL,
     distancia_moto_persona INTEGER,
     telegram_enviado BOOLEAN DEFAULT FALSE,
-    estado VARCHAR(20) DEFAULT 'pendiente'
+    estado VARCHAR(20) DEFAULT 'pendiente',
+    tipo_evento VARCHAR(50) DEFAULT 'normal',
+    arma_utilizada VARCHAR(50) DEFAULT 'ninguna',
+    testigos INTEGER DEFAULT 0,
+    descripcion TEXT
 );
