@@ -8,10 +8,10 @@ from dotenv import load_dotenv
 # Cargar .env
 load_dotenv()
 
-# 👇 DEBUG: Verificar que las variables existen
+# DEBUG: Verificar que las variables existen
 print("=== DEBUG S3 SERVICE ===")
 access_key = os.getenv("AWS_ACCESS_KEY_ID")
-secret_key = os.getenv("AWS_SECRET_KEY")
+secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
 session_token = os.getenv("AWS_SESSION_TOKEN")
 region = os.getenv("AWS_REGION")
 bucket = os.getenv("AWS_S3_BUCKET_NAME")
@@ -24,22 +24,28 @@ print(f"AWS_S3_BUCKET_NAME: {bucket}")
 print("========================")
 
 # Verificar que todas las credenciales existen
-if not all([access_key, secret_key, session_token, bucket]):
+if not all([access_key, secret_key, bucket]):
     print("❌ FALTAN VARIABLES DE ENTORNO. Revisa tu archivo .env")
     print("El archivo .env debe estar en:", os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
+    s3_client = None  # 👈 Definir como None si faltan
 else:
     s3_client = boto3.client(
         's3',
         aws_access_key_id=access_key,
         aws_secret_access_key=secret_key,
-        aws_session_token=session_token,
+        aws_session_token=session_token,  
         region_name=region
     )
+    print("✅ S3 Client creado correctamente")
 
 BUCKET_NAME = bucket
 
 def upload_image_to_s3(image_bytes: bytes, folder: str = "alertas") -> str:
     try:
+        if s3_client is None:  # 👈 Verificar si el cliente existe
+            print("❌ S3 Client no inicializado")
+            return None
+            
         if not BUCKET_NAME:
             print("❌ BUCKET_NAME no configurado")
             return None
@@ -55,7 +61,7 @@ def upload_image_to_s3(image_bytes: bytes, folder: str = "alertas") -> str:
             ContentType='image/jpeg'
         )
         
-        url = f"https://{BUCKET_NAME}.s3.{os.getenv('AWS_REGION')}.amazonaws.com/{filename}"
+        url = f"https://{BUCKET_NAME}.s3.{region}.amazonaws.com/{filename}"
         print(f"✅ Imagen subida a S3: {url}")
         return url
     except Exception as e:

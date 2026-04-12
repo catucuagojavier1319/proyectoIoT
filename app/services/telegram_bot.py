@@ -8,17 +8,29 @@ load_dotenv()
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
-def enviar_telegram(foto1_url: str, foto2_url: str, distancia: float, confianza: float, analisis: str = None):
+def enviar_telegram(foto1_url: str, foto2_url: str, distancia: float, confianza: float, 
+                    tipo_evento: str = None, arma_utilizada: str = None, analisis: str = None):
     """Enviar alerta a Telegram con URLs de S3 y análisis de GPT"""
     try:
         url = f"https://api.telegram.org/bot{TOKEN}/sendPhoto"
         
         # Caption base
-        caption = f"🚨 ALERTA DE SEGURIDAD\n\n📏 Distancia: {distancia}px\n🎯 Confianza: {confianza:.1f}%"
+        caption = f"🚨 ALERTA DE SEGURIDAD\n\n"
+        
+        # Tipo de evento
+        if tipo_evento:
+            caption += f"🏷️ Tipo: {tipo_evento.upper()}\n"
+        
+        # Arma utilizada
+        if arma_utilizada and arma_utilizada != "ninguna":
+            caption += f"🔫 Arma: {arma_utilizada}\n"
+        
+        caption += f"📏 Distancia: {distancia}px\n"
+        caption += f"🎯 Confianza: {confianza:.1f}%\n"
         
         # Agregar análisis de GPT si existe
         if analisis:
-            caption += f"\n\n Análisis IA:\n{analisis}"
+            caption += f"\n📝 {analisis}"
         
         # Enviar primera foto con caption
         response1 = requests.post(

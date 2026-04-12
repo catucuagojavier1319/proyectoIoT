@@ -14,33 +14,36 @@ def get_connection():
         password=os.getenv("DB_PASSWORD", "password")
     )
 
-def guardar_alerta(foto1_url: str, foto2_url: str, confianza: float, distancia: int):
-    """Guardar alerta con URLs de S3 (sin imágenes BLOB)"""
+def guardar_alerta(foto1_url: str, foto2_url: str, confianza: float, distancia: int,
+                   tipo_evento: str = "normal", arma_utilizada: str = "ninguna",
+                   testigos: int = 0, descripcion: str = None):
+    """Guardar alerta con URLs de S3 y análisis de GPT"""
     conn = get_connection()
     cur = conn.cursor()
     
     cur.execute("""
-        INSERT INTO alertas (foto1_url, foto2_url, moto_confianza, distancia_moto_persona)
-        VALUES (%s, %s, %s, %s)
+        INSERT INTO alertas (foto1_url, foto2_url, moto_confianza, distancia_moto_persona, 
+                             tipo_evento, arma_utilizada, testigos, descripcion)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id
-    """, (foto1_url, foto2_url, confianza, distancia))
+    """, (foto1_url, foto2_url, confianza, distancia, tipo_evento, arma_utilizada, testigos, descripcion))
     
     alerta_id = cur.fetchone()[0]
     conn.commit()
     cur.close()
     conn.close()
     
-    print(f"✅ Alerta guardada en BD - ID: {alerta_id} | URL: {foto1_url}")
+    print(f"✅ Alerta guardada - ID: {alerta_id} | Tipo: {tipo_evento} | Arma: {arma_utilizada} | Testigos: {testigos}")
     return alerta_id
 
-def obtener_alertas(limit: int = 50):
-    """Obtener todas las alertas con URLs"""
+def obtener_alertas(limit: int = 500):
+    """Obtener todas las alertas con análisis"""
     conn = get_connection()
     cur = conn.cursor()
     
     cur.execute("""
-        SELECT id, fecha, foto1_url, foto2_url, moto_confianza, distancia_moto_persona, 
-               telegram_enviado, estado
+        SELECT id, fecha, foto1_url, foto2_url, moto_confianza, distancia_moto_persona,
+               telegram_enviado, estado, tipo_evento, arma_utilizada, testigos, descripcion
         FROM alertas 
         ORDER BY fecha DESC 
         LIMIT %s
@@ -56,7 +59,11 @@ def obtener_alertas(limit: int = 50):
             "moto_confianza": row[4],
             "distancia": row[5],
             "telegram_enviado": row[6],
-            "estado": row[7]
+            "estado": row[7],
+            "tipo_evento": row[8] or "normal",
+            "arma_utilizada": row[9] or "ninguna",
+            "testigos": row[10] or 0,
+            "descripcion": row[11] or ""
         })
     
     cur.close()

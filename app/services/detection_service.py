@@ -7,7 +7,7 @@ import math
 
 MODELO_PATH = "yolov8n.pt"
 CONFIANZA_MIN = 0.25
-DISTANCIA_PELIGRO = 400  
+DISTANCIA_PELIGRO = 500  
 class DetectionService:
     def __init__(self):
         self.modelo = YOLO(MODELO_PATH)
